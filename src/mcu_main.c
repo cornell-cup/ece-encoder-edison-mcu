@@ -1,8 +1,6 @@
 #include "mcu_api.h"
 #include "mcu_errno.h"
 
-// Setup mcu with init_DIG.sh and run that on DIG 7 on linux after downloading this
-
 volatile unsigned long prevTime, curTime;
 volatile unsigned long RPM;
 // rpm = 60 * (4/(encoder period)) / (cpr * (gear ratio))
@@ -13,6 +11,14 @@ volatile unsigned long duration;
 
 #define CPR			64
 #define GEAR_RATIO	30
+
+#define PWM_PERIOD_MIN	104			// in ns
+#define PWM_PERIOD_MAX	218453000	// in ns
+#define PWM_PERIOD		1000000		// in ns, = 1ms
+
+#define PWM_PORT		0
+#define ENCODER_GPIO	48
+volatile int duty_ns;
 
 int my_irq(int req){
 
@@ -27,8 +33,12 @@ int my_irq(int req){
 }
 
 void mcu_main() {
-	gpio_setup(48, 0); // DIG 7 input
-	gpio_register_interrupt(48, 1, my_irq); // DIG 7, rising edge, isr
+	gpio_setup(ENCODER_GPIO, 0); // DIG 7 input
+	gpio_register_interrupt(ENCODER_GPIO, 1, my_irq); // DIG 7, rising edge, isr
+
+	duty_ns = PWM_PERIOD/4;
+	pwm_configure(PWM_PORT, duty_ns, PWM_PERIOD);
+	pwm_enable(PWM_PORT);
 
 	while (1) {
 		debug_print(DBG_INFO, "duration = %u\n", duration);
